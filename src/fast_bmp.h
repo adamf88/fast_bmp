@@ -1,7 +1,5 @@
 
 #pragma once
-
-#pragma once
 #ifndef FAST_BMP_H
 #define FAST_BMP_H
 
