@@ -53,32 +53,25 @@ namespace fbmp
 	void reader::read_dib_header(input_stream& stream)
 	{
 		stream.read(&_dib_header_size, sizeof(int32_t), 1);
-
-		if (_dib_header_size == 40)
-			stream.read(&_dib_header, sizeof(dib_header), 1);
-		else
-			throw exception("not supported dib header");
+		_dib_header = dib_header::create_header(_dib_header_size);
+		stream.read(_dib_header->data(), _dib_header->size() - sizeof(int32_t), 1);
 	}
 
 	void reader::read_image(input_stream& stream)
 	{
-		int imageSize = _dib_header.imageSize;
+		const dib_header& info_header = *_dib_header;
+		const int32_t width = info_header.width();
+		const int32_t height = abs(info_header.height());
+		const int32_t bit_count = info_header.bit_count();
+		const bool flipped = info_header.height() > 0;
+		const int row_size = ((bit_count * width + 31) / 32) * 4; //padding to 4 bytes
 
-		if (imageSize == 0)
-			imageSize = _dib_header.width * _dib_header.height;
-
-		const int width = _dib_header.width;
-		const bool flipped = _dib_header.height > 0;
-		const int height = (flipped ? 1 : -1) * _dib_header.height;
-
-
-		if (_dib_header.bitCount == 1)
+		if (bit_count == 1)
 		{
 			_image.reset(width, height, 1);
 
 			stream.seek(_header.offset);
 
-			const int row_size = ((_dib_header.width + 31) / 32) * 4; //padding to 4 bytes
 			std::unique_ptr<uint8_t[]> line_buffer(new uint8_t[row_size]);
 
 			for (int y = height - 1; y >= 0; --y)
@@ -113,14 +106,64 @@ namespace fbmp
 				}
 			}
 		}
-		else if (_dib_header.bitCount == 24)
+		else if (bit_count == 8)
 		{
-			const int rowSize = (((int32_t)_dib_header.bitCount * _dib_header.width + 31) / 32) * 4;
+			uint32_t colors_in_color_table = info_header.palette_colors();
+			if (colors_in_color_table == 0)
+				colors_in_color_table = 256;
+
+			//check if grayscale
+			_image.reset(width, height, 3);
+			uint32_t palette[256] = { 0 };
+
+			if (_dib_header->header_type() == dib_header_type::bitmap_core_header)
+			{
+				struct bgr_pixel
+				{
+					uint8_t b;
+					uint8_t g;
+					uint8_t r;
+				};
+				bgr_pixel tmp_palette[256];
+				stream.read(tmp_palette, sizeof(bgr_pixel), colors_in_color_table);
+
+				for (int i = 0; i < colors_in_color_table; ++i)
+				{
+					palette[i] = (tmp_palette[i].r << 16) + (tmp_palette[i].g << 8) + tmp_palette[i].b;
+				}
+			}
+			else
+			{
+				stream.read(palette, sizeof(uint32_t), colors_in_color_table);
+			}
 			
-			_image.reset(width, height, 3, rowSize);
+
+			std::unique_ptr<uint8_t[]> line_buffer(new uint8_t[row_size]);
+			
+			stream.seek(_header.offset);
+			for (int y = height - 1; y >= 0; --y)
+			{
+				stream.read(line_buffer.get(), sizeof(uint8_t), row_size);
+				uint8_t* begin = _image.get_row_begin(y);
+				const uint8_t* const end = _image.get_row_end(y);
+				uint8_t* data = line_buffer.get();
+				while (begin != end)
+				{
+					uint32_t color = palette[*data];// palette[*data];
+					++data;
+					begin[0] = (uint8_t)(color >> 16);
+					begin[1] = (uint8_t)(color >> 8);
+					begin[2] = (uint8_t)color;
+					begin += 3;
+				}
+			}
+		}
+		else if (bit_count == 24)
+		{		
+			_image.reset(width, height, 3, row_size);
 
 			stream.seek(_header.offset);
-			stream.read(_image.data(), sizeof(uint8_t), rowSize * height);
+			stream.read(_image.data(), sizeof(uint8_t), row_size * height);
 
 			if (!flipped)
 			{
@@ -174,6 +217,10 @@ namespace fbmp
 				}
 
 			}
+		}
+		else
+		{
+			throw exception(std::string("not supported bpp ") + std::to_string(bit_count));
 		}
 	}
 

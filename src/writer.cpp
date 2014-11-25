@@ -35,15 +35,15 @@ namespace fbmp
 		uint16_t a;
 	};
 
-	void writer::write(output_stream& stream, main_header _main_header, dib_header _dib_header, const image& _image)
+	void writer::write(output_stream& stream, main_header& _main_header, const dib_header& info_header, const image& _image)
 	{
 		output_stream_handle handle(stream);
 
-		_dib_header.height = _dib_header.height > 0 ? -_dib_header.height : _dib_header.height;
-		int width = _dib_header.width;
-		int height = -_dib_header.height;
+		//info_header.height = -abs(info_header.height());
+		int width = info_header.width();
+		int height = -info_header.height();
 		const int rowSize = ((width + 31) / 32) * 4;
-		const int pixelFormatSize = _dib_header.bitCount == 1 ? 8 : 0;
+		const int pixelFormatSize = info_header.bit_count() == 1 ? 8 : 0;
 		_main_header.offset = sizeof(main_header)+sizeof(dib_header)+sizeof(int32_t)+pixelFormatSize; //+ rozmiar
 		const int imageSize = rowSize * height + _main_header.offset;
 		_main_header.file_size = imageSize;
@@ -52,9 +52,9 @@ namespace fbmp
 
 		stream.write(&_main_header, sizeof(main_header), 1);
 		stream.write(&headerSize, sizeof(int32_t), 1);
-		stream.write(&_dib_header, sizeof(dib_header), 1);
+		stream.write(info_header.data(), (size_t)info_header.size(), 1);
 
-		if (_dib_header.bitCount == 1)
+		if (info_header.bit_count() == 1)
 		{
 			PixelFormat f;
 			f.r = 0;
@@ -84,7 +84,7 @@ namespace fbmp
 				stream.write(&dataToWrite[0], sizeof(uint8_t), dataToWrite.size());
 			}
 		}
-		else if (_dib_header.bitCount == 24)
+		else if (info_header.bit_count() == 24)
 		{
 			image image_copy = _image;
 			for (int i = 0; i < height; ++i)

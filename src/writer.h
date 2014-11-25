@@ -13,7 +13,7 @@ namespace fbmp
 	class writer
 	{
 	public:
-		void write(output_stream& stream, main_header header, dib_header dib_header, const image& image);
+		void write(output_stream& stream, main_header& header, const dib_header& dib_header, const image& image);
 	};
 
 }
