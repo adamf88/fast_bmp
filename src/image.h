@@ -15,43 +15,43 @@ namespace fbmp
 	{
 	public:
 
-		image() = default;
-		image(size_t width, size_t height, size_t channels);
-		image(size_t width, size_t height, size_t channels, size_t pitch);
-		image(size_t width, size_t height, size_t channels, size_t pitch, uint8_t* data);
+		inline image() = default;
+		inline image(size_t width, size_t height, size_t channels);
+		inline image(size_t width, size_t height, size_t channels, size_t pitch);
+		inline image(size_t width, size_t height, size_t channels, size_t pitch, uint8_t* data);
 
 
-		image(const image& img);
-		image(image&& img);
+		inline image(const image& img);
+		inline image(image&& img);
 
-		~image();
+		inline ~image();
 
-		image& operator=(const image& img);
+		inline image& operator=(const image& img);
 		image& operator=(image&& img);
 
-		void reset(size_t width, size_t height, size_t channels, size_t pitch = 0);
-		void reset(size_t width, size_t height, size_t channels, size_t pitch, uint8_t* data);
+		inline void reset(size_t width, size_t height, size_t channels, size_t pitch = 0);
+		inline void reset(size_t width, size_t height, size_t channels, size_t pitch, uint8_t* data);
 
-		size_t width() const;
-		size_t height() const;
-		size_t pitch() const;
-		size_t channels() const;
+		inline size_t width() const;
+		inline size_t height() const;
+		inline size_t pitch() const;
+		inline size_t channels() const;
 
-		const uint8_t* data() const;
-		uint8_t* data();
+		inline const uint8_t* data() const;
+		inline uint8_t* data();
 
-		uint8_t* get_row_begin(int row);
-		const uint8_t* get_row_begin(int row) const;
+		inline uint8_t* get_row_begin(size_t row);
+		inline const uint8_t* get_row_begin(size_t row) const;
 
-		uint8_t* get_row_end(int row);
-		const uint8_t* get_row_end(int row) const;
+		inline uint8_t* get_row_end(size_t row);
+		inline const uint8_t* get_row_end(size_t row) const;
 
-		bool own_data() const;
+		inline bool own_data() const;
 
-		uint8_t* release();
+		inline uint8_t* release();
 
 	private:
-		void dealloc();
+		inline void dealloc();
 
 	private:
 		size_t _width = 0;
@@ -194,22 +194,22 @@ namespace fbmp
 		return result;
 	}
 
-	inline uint8_t* image::get_row_begin(int row)
+	inline uint8_t* image::get_row_begin(size_t row)
 	{
 		return _dataPointer + _pitch * row;
 	}
 
-	inline const uint8_t* image::get_row_begin(int row) const
+	inline const uint8_t* image::get_row_begin(size_t row) const
 	{
 		return _dataPointer + _pitch * row;
 	}
 
-	inline uint8_t* image::get_row_end(int row)
+	inline uint8_t* image::get_row_end(size_t row)
 	{
 		return _dataPointer + _pitch * row + _width * _channels;
 	}
 
-	inline const uint8_t* image::get_row_end(int row) const
+	inline const uint8_t* image::get_row_end(size_t row) const
 	{
 		return _dataPointer + _pitch * row + _width;
 	}

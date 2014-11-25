@@ -15,6 +15,9 @@ namespace fbmp
 			m_stream.open_for_writing();
 		}
 
+		output_stream_handle(const output_stream_handle&) = delete;
+		output_stream_handle& operator=(const output_stream_handle&) = delete;
+
 		~output_stream_handle()
 		{
 			m_stream.close();

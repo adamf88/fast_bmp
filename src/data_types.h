@@ -20,10 +20,12 @@ namespace fbmp
 
 		std::string details()
 		{
-			return std::string("size: ") + std::to_string(file_size) +
-				" reserved1: " + std::to_string(reserved1) +
-				" reserved2: " + std::to_string(reserved2) +
-				" offset: " + std::to_string(offset);
+			return std::string("Main header:")
+				+ "\n" "Size: " + std::to_string(file_size)
+				+ "\n" "Reserved1: " + std::to_string(reserved1)
+				+ "\n" "Reserved2: " + std::to_string(reserved2)
+				+ "\n" "Offset: " + std::to_string(offset)
+				+ "\n\n";
 		}
 	};
 	#pragma pack()
@@ -43,16 +45,18 @@ namespace fbmp
 
 		std::string details()
 		{
-			return std::string("width: ") + std::to_string(width) +
-				" height: " + std::to_string(height) +
-				" planes: " + std::to_string(planes) +
-				" bitCount: " + std::to_string(bitCount) +
-				" compression: " + std::to_string(compression) +
-				" imageSize: " + std::to_string(imageSize) +
-				" XPeelsPerMeter: " + std::to_string(XPeelsPerMeter) +
-				" YPeelsPerMeter: " + std::to_string(YPeelsPerMeter) +
-				" paletteColors: " + std::to_string(paletteColors) +
-				" importantColors: " + std::to_string(importantColors);
+			return std::string("DIB header:")
+				+ "\n" "Width: " + std::to_string(width)
+				+ "\n" "Height: " + std::to_string(height)
+				+ "\n" "Planes: " + std::to_string(planes)
+				+ "\n" "Bit Count: " + std::to_string(bitCount)
+				+ "\n" "Compression: " + std::to_string(compression)
+				+ "\n" "Image Size: " + std::to_string(imageSize)
+				+ "\n" "X Peels Per Meter: " + std::to_string(XPeelsPerMeter)
+				+ "\n" "Y Peels Per Meter: " + std::to_string(YPeelsPerMeter)
+				+ "\n" "Palette Colors: " + std::to_string(paletteColors)
+				+ "\n" "Important Colors: " + std::to_string(importantColors)
+				+ "\n\n";
 		}
 	};
 

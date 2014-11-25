@@ -13,6 +13,9 @@ namespace fbmp
 			m_stream.open_for_reading();
 		}
 
+		input_stream_handle(const input_stream_handle&) = delete;
+		input_stream_handle& operator=(const input_stream_handle&) = delete;
+
 		~input_stream_handle()
 		{
 			m_stream.close();
@@ -145,13 +148,13 @@ namespace fbmp
 					{
 						uint32_t ac = *(uint32_t*)a;
 						uint32_t bc = *(uint32_t*)b;
-						b[0] = ac >> 16;
-						b[1] = ac >> 8;
-						b[2] = ac;
+						b[0] = (uint8_t)(ac >> 16);
+						b[1] = (uint8_t)(ac >> 8);
+						b[2] = (uint8_t)ac;
 						b += 3;
-						a[0] = bc >> 16;
-						a[1] = bc >> 8;
-						a[2] = bc;
+						a[0] = (uint8_t)(bc >> 16);
+						a[1] = (uint8_t)(bc >> 8);
+						a[2] = (uint8_t)bc;
 						a += 3;
 					}
 				}
@@ -174,7 +177,7 @@ namespace fbmp
 		}
 	}
 
-	void reader::read_palette(input_stream& stream)
+	void reader::read_palette(input_stream& /*stream*/)
 	{
 
 	}

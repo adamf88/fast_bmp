@@ -18,4 +18,4 @@ namespace fbmp
 
 }
 
-#endif FBMP_WRITER_H
+#endif //FBMP_WRITER_H

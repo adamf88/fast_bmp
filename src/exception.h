@@ -8,7 +8,7 @@
 namespace fbmp
 {
 
-	class exception : std::exception
+	class exception : public std::exception
 	{
 	public:
 		exception() = default;
