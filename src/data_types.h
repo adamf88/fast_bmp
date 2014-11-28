@@ -23,6 +23,7 @@ namespace fbmp
 		std::string details()
 		{
 			return std::string("Main header:")
+				+ "\n" "Magic: " + std::string(magic, magic + 2)
 				+ "\n" "Size: " + std::to_string(file_size)
 				+ "\n" "Reserved1: " + std::to_string(reserved1)
 				+ "\n" "Reserved2: " + std::to_string(reserved2)
@@ -171,7 +172,14 @@ namespace fbmp
 		int32_t y_peels_per_meter = 0;
 		int32_t palette_colors = 0;
 		int32_t important_colors = 0;
-		int32_t nothing[100];
+		int16_t resUnit = 0;
+		int16_t reserved = 0;
+		int16_t orientation = 0;
+		int16_t halftoning = 0;
+		int32_t halftone_size1 = 0;
+		int32_t halftone_size2 = 0;
+		int32_t color_space = 0;
+		int32_t app_data = 0;
 	};
 
 	class dib_bitmap_core_header2 : public dib_header
@@ -181,7 +189,7 @@ namespace fbmp
 
 		void* data() override { return &header; }
 		const void* data() const { return &header; }
-		dib_header_type header_type() const override { return dib_header_type::bitmap_core_header; }
+		dib_header_type header_type() const override { return dib_header_type::bitmap_core_header2; }
 
 		int32_t size() const override { return 64; }
 		int32_t width() const override { return header.width; }

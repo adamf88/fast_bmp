@@ -1,6 +1,8 @@
 
 #include <memory>
+#include <cassert>
 #include "reader.h"
+
 
 namespace fbmp
 {
@@ -106,57 +108,77 @@ namespace fbmp
 				}
 			}
 		}
-		else if (bit_count == 8)
+		else if ( bit_count <= 8)
 		{
 			uint32_t colors_in_color_table = info_header.palette_colors();
 			if (colors_in_color_table == 0)
-				colors_in_color_table = 256;
+				colors_in_color_table = 1 << bit_count;
+			read_palette(stream, colors_in_color_table);
 
-			//check if grayscale
 			_image.reset(width, height, 3);
-			uint32_t palette[256] = { 0 };
+			stream.seek(_header.offset);
 
-			if (_dib_header->header_type() == dib_header_type::bitmap_core_header)
+			std::unique_ptr<uint8_t[]> line_buffer(new uint8_t[row_size]);
+			int s = 0;
+			int e = height - 1;
+			int i = 1;
+			if (flipped)
 			{
-				struct bgr_pixel
-				{
-					uint8_t b;
-					uint8_t g;
-					uint8_t r;
-				};
-				bgr_pixel tmp_palette[256];
-				stream.read(tmp_palette, sizeof(bgr_pixel), colors_in_color_table);
+				s = height - 1;
+				e = -1;
+				i = -1;
+			}
 
-				for (int i = 0; i < colors_in_color_table; ++i)
+			if (bit_count == 4)
+			{
+				for (int y = s; y != e; y += i)
 				{
-					palette[i] = (tmp_palette[i].r << 16) + (tmp_palette[i].g << 8) + tmp_palette[i].b;
+					stream.read(line_buffer.get(), sizeof(uint8_t), row_size);
+					uint8_t* begin = _image.get_row_begin(y);
+					const uint8_t* const end = _image.get_row_end(y);
+					uint8_t* data = line_buffer.get();
+					while (begin != end)
+					{
+						uint8_t value = *data;
+						uint32_t color = palette[value >> 4];
+						begin[0] = (uint8_t)(color >> 16);
+						begin[1] = (uint8_t)(color >> 8);
+						begin[2] = (uint8_t)color;
+						begin += 3;
+
+						if (begin < end)
+						{
+							uint32_t color = palette[value & 0xF];
+							begin[0] = (uint8_t)(color >> 16);
+							begin[1] = (uint8_t)(color >> 8);
+							begin[2] = (uint8_t)color;
+							begin += 3;
+						}
+						++data;
+					}
+				}
+			}
+			else if (bit_count == 8)
+			{
+				for (int y = s; y != e; y += i)
+				{
+					stream.read(line_buffer.get(), sizeof(uint8_t), row_size);
+					uint8_t* begin = _image.get_row_begin(y);
+					const uint8_t* const end = _image.get_row_end(y);
+					uint8_t* data = line_buffer.get();
+					while (begin != end)
+					{
+						uint32_t color = palette[*data];// palette[*data];
+						++data;
+						begin[0] = (uint8_t)(color >> 16);
+						begin[1] = (uint8_t)(color >> 8);
+						begin[2] = (uint8_t)color;
+						begin += 3;
+					}
 				}
 			}
 			else
-			{
-				stream.read(palette, sizeof(uint32_t), colors_in_color_table);
-			}
-			
-
-			std::unique_ptr<uint8_t[]> line_buffer(new uint8_t[row_size]);
-			
-			stream.seek(_header.offset);
-			for (int y = height - 1; y >= 0; --y)
-			{
-				stream.read(line_buffer.get(), sizeof(uint8_t), row_size);
-				uint8_t* begin = _image.get_row_begin(y);
-				const uint8_t* const end = _image.get_row_end(y);
-				uint8_t* data = line_buffer.get();
-				while (begin != end)
-				{
-					uint32_t color = palette[*data];// palette[*data];
-					++data;
-					begin[0] = (uint8_t)(color >> 16);
-					begin[1] = (uint8_t)(color >> 8);
-					begin[2] = (uint8_t)color;
-					begin += 3;
-				}
-			}
+				throw exception(std::string("not supported bpp ") + std::to_string(bit_count));
 		}
 		else if (bit_count == 24)
 		{		
@@ -224,9 +246,29 @@ namespace fbmp
 		}
 	}
 
-	void reader::read_palette(input_stream& /*stream*/)
+	void reader::read_palette(input_stream& stream, size_t colors_in_color_table)
 	{
+		if (colors_in_color_table > 256)
+			colors_in_color_table = 256;
 
+		if (_dib_header->header_type() != dib_header_type::bitmap_core_header)
+		{
+			stream.read(palette, sizeof(uint32_t), colors_in_color_table);
+		}
+		else // old bitmap format
+		{
+			assert(_dib_header->size() == 12);
+			struct pixel3
+			{
+				uint8_t x;	uint8_t y;	uint8_t z;
+			};
+			
+			pixel3 pixel3_palette[256];
+			stream.read(pixel3_palette, sizeof(pixel3), colors_in_color_table);
+
+			for (int i = 0; i < colors_in_color_table; ++i)
+				palette[i] = (pixel3_palette[i].x) + (pixel3_palette[i].y << 8) + (pixel3_palette[i].z << 16);
+		}
 	}
 
 }

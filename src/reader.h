@@ -30,11 +30,12 @@ namespace fbmp
 		void read_header(input_stream& stream);
 		void read_dib_header(input_stream& stream);
 		void read_image(input_stream& steram);
-		void read_palette(input_stream& stream);
+		void read_palette(input_stream& stream, size_t colors);
 
 		image _image;
 		int32_t _dib_header_size;
 		main_header _header;
+		uint32_t palette[256];
 		std::unique_ptr<dib_header> _dib_header;
 	};
 
