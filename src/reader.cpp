@@ -27,39 +27,79 @@ namespace fbmp
 		input_stream& m_stream;
 	};
 
-	reader::reader()
-	{
-		static_assert(sizeof(main_header) == 14, "wrong size of BmpHeader");
+	reader::reader(input_stream& stream)
+		: _stream(stream)
+	{		
 	}
 
-	void reader::read(input_stream& stream)
+	reader::reader(input_stream* stream)
+		: _stream(*stream)
 	{
-		input_stream_handle streamHandle(stream);
+	}
 
-		read_header(stream);
-		read_dib_header(stream);
+	reader::~reader()
+	{
+	}
 
-		read_image(stream);
+	void reader::read()
+	{
+		input_stream_handle streamHandle(_stream);
+
+		read_header();
+		read_dib_header();
+
+		read_image();
 	}
 
 
-	void reader::read_header(input_stream& stream)
+	void reader::read_header()
 	{
-		stream.read(&_header, sizeof(main_header), 1);
+		_stream.read(&_header, sizeof(main_header), 1);
 		if (_header.magic[0] != 'B' && _header.magic[1] != 'M')
 		{
 			throw exception("Bad magic number. The file should begin from: BM");
 		}
 	}
 
-	void reader::read_dib_header(input_stream& stream)
+	void reader::read_dib_header()
 	{
-		stream.read(&_dib_header_size, sizeof(int32_t), 1);
-		_dib_header = dib_header::create_header(_dib_header_size);
-		stream.read(_dib_header->data(), _dib_header->size() - sizeof(int32_t), 1);
+		int32_t dib_header_size;
+		_stream.read(&dib_header_size, sizeof(int32_t), 1);
+		_dib_header = dib_header::create_header(dib_header_size);
+		_stream.read(_dib_header->data(), _dib_header->size() - sizeof(int32_t), 1);
 	}
 
-	void reader::read_image(input_stream& stream)
+	void reader::read_palette()
+	{
+		int16_t bit_count = _dib_header->bit_count();
+		if (bit_count > 8)
+			return;
+
+		uint8_t palette_size = (uint8_t)_dib_header->palette_colors();
+		if (palette_size == 0)
+			palette_size = 1 << bit_count;
+		
+		if (_dib_header->header_type() != dib_header_type::bitmap_core_header)
+		{
+			_stream.read(_palette, sizeof(uint32_t), palette_size);
+		}
+		else // old bitmap format
+		{
+			assert(_dib_header->size() == 12);
+			struct pixel3
+			{
+				uint8_t x;	uint8_t y;	uint8_t z;
+			};
+
+			pixel3 pixel3_palette[256];
+			_stream.read(pixel3_palette, sizeof(pixel3), palette_size);
+
+			for (int i = 0; i < palette_size; ++i)
+				_palette[i] = (pixel3_palette[i].x) + (pixel3_palette[i].y << 8) + (pixel3_palette[i].z << 16);
+		}
+	}
+	
+	void reader::read_image()
 	{
 		const dib_header& info_header = *_dib_header;
 		const int32_t width = info_header.width();
@@ -68,11 +108,13 @@ namespace fbmp
 		const bool flipped = info_header.height() > 0;
 		const int row_size = ((bit_count * width + 31) / 32) * 4; //padding to 4 bytes
 
+		read_palette();
+
 		if (bit_count == 1)
 		{
 			_image.reset(width, height, 1);
 
-			stream.seek(_header.offset);
+			_stream.seek(_header.offset);
 
 			std::unique_ptr<uint8_t[]> line_buffer(new uint8_t[row_size]);
 
@@ -82,7 +124,7 @@ namespace fbmp
 				uint8_t* data = _image.get_row_begin(y);
 				const uint8_t* const data_end = data + width;
 
-				stream.read(line_buffer.get(), sizeof(uint8_t), row_size);
+				_stream.read(line_buffer.get(), sizeof(uint8_t), row_size);
 
 				while (data < data_end - 8)
 				{
@@ -110,13 +152,8 @@ namespace fbmp
 		}
 		else if ( bit_count <= 8)
 		{
-			uint32_t colors_in_color_table = info_header.palette_colors();
-			if (colors_in_color_table == 0)
-				colors_in_color_table = 1 << bit_count;
-			read_palette(stream, colors_in_color_table);
-
 			_image.reset(width, height, 3);
-			stream.seek(_header.offset);
+			_stream.seek(_header.offset);
 
 			std::unique_ptr<uint8_t[]> line_buffer(new uint8_t[row_size]);
 			int s = 0;
@@ -133,14 +170,14 @@ namespace fbmp
 			{
 				for (int y = s; y != e; y += i)
 				{
-					stream.read(line_buffer.get(), sizeof(uint8_t), row_size);
+					_stream.read(line_buffer.get(), sizeof(uint8_t), row_size);
 					uint8_t* begin = _image.get_row_begin(y);
 					const uint8_t* const end = _image.get_row_end(y);
 					uint8_t* data = line_buffer.get();
 					while (begin != end)
 					{
 						uint8_t value = *data;
-						uint32_t color = palette[value >> 4];
+						uint32_t color = _palette[value >> 4];
 						begin[0] = (uint8_t)(color >> 16);
 						begin[1] = (uint8_t)(color >> 8);
 						begin[2] = (uint8_t)color;
@@ -148,7 +185,7 @@ namespace fbmp
 
 						if (begin < end)
 						{
-							uint32_t color = palette[value & 0xF];
+							uint32_t color = _palette[value & 0xF];
 							begin[0] = (uint8_t)(color >> 16);
 							begin[1] = (uint8_t)(color >> 8);
 							begin[2] = (uint8_t)color;
@@ -162,13 +199,13 @@ namespace fbmp
 			{
 				for (int y = s; y != e; y += i)
 				{
-					stream.read(line_buffer.get(), sizeof(uint8_t), row_size);
+					_stream.read(line_buffer.get(), sizeof(uint8_t), row_size);
 					uint8_t* begin = _image.get_row_begin(y);
 					const uint8_t* const end = _image.get_row_end(y);
 					uint8_t* data = line_buffer.get();
 					while (begin != end)
 					{
-						uint32_t color = palette[*data];// palette[*data];
+						uint32_t color = _palette[*data];// palette[*data];
 						++data;
 						begin[0] = (uint8_t)(color >> 16);
 						begin[1] = (uint8_t)(color >> 8);
@@ -184,8 +221,8 @@ namespace fbmp
 		{		
 			_image.reset(width, height, 3, row_size);
 
-			stream.seek(_header.offset);
-			stream.read(_image.data(), sizeof(uint8_t), row_size * height);
+			_stream.seek(_header.offset);
+			_stream.read(_image.data(), sizeof(uint8_t), row_size * height);
 
 			if (!flipped)
 			{
@@ -243,31 +280,6 @@ namespace fbmp
 		else
 		{
 			throw exception(std::string("not supported bpp ") + std::to_string(bit_count));
-		}
-	}
-
-	void reader::read_palette(input_stream& stream, size_t colors_in_color_table)
-	{
-		if (colors_in_color_table > 256)
-			colors_in_color_table = 256;
-
-		if (_dib_header->header_type() != dib_header_type::bitmap_core_header)
-		{
-			stream.read(palette, sizeof(uint32_t), colors_in_color_table);
-		}
-		else // old bitmap format
-		{
-			assert(_dib_header->size() == 12);
-			struct pixel3
-			{
-				uint8_t x;	uint8_t y;	uint8_t z;
-			};
-			
-			pixel3 pixel3_palette[256];
-			stream.read(pixel3_palette, sizeof(pixel3), colors_in_color_table);
-
-			for (int i = 0; i < colors_in_color_table; ++i)
-				palette[i] = (pixel3_palette[i].x) + (pixel3_palette[i].y << 8) + (pixel3_palette[i].z << 16);
 		}
 	}
 
