@@ -38,7 +38,14 @@ namespace fbmp
 		void read_palette();
 		void read_image();
 	private:
-		void apply_palette();
+		bool is_palette_black_white();
+
+		void read_1bpp(int width, int height, int row_size, bool flipped);
+		void read_4bpp(int width, int height, int row_size, bool flipped);
+		void read_8bpp(int width, int height, int row_size, bool flipped);
+		void read_24bpp(int width, int height, int row_size, bool flipped);
+		void read_32bpp(int width, int height, int row_size, bool flipped);
+
 	private:
 		input_stream& _stream;
 
