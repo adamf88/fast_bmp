@@ -48,12 +48,7 @@ namespace fbmp
 	class dib_header
 	{
 	public:
-		inline static std::unique_ptr<dib_header> create_header(dib_header_type header_type);
-
-		inline static std::unique_ptr<dib_header> create_header(int32_t header_size)
-		{
-			return create_header(static_cast<dib_header_type>(header_size));
-		}
+		inline static std::unique_ptr<dib_header> create_header(int32_t header_size);
 
 	public:
 		virtual ~dib_header(){}
@@ -204,8 +199,32 @@ namespace fbmp
 		int32_t important_colors() const  override { return 0; }
 	};
 
-	inline std::unique_ptr<dib_header> dib_header::create_header(dib_header_type header_type)
+	//this header may have various size
+	class dib_bitmap_Os22xBitmapHeader : public dib_header
 	{
+	public:
+		bitmap_core_header2_data header;
+
+		void* data() override { return &header; }
+		const void* data() const { return &header; }
+		dib_header_type header_type() const override { return dib_header_type::bitmap_core_header2; }
+
+		int32_t size() const override { return -1; } //max 64 bytes
+		int32_t width() const override { return header.width; }
+		int32_t height() const override { return header.height; }
+		int16_t planes() const override { return header.planes; }
+		int16_t bit_count() const override { return header.bit_count; }
+		int32_t compression() const override { return header.compression; }
+		int32_t image_size() const override { return header.image_size; }
+		int32_t x_peels_per_meter() const override { return header.x_peels_per_meter; }
+		int32_t y_peels_per_meter() const override { return header.y_peels_per_meter; }
+		int32_t palette_colors() const override { return header.palette_colors; }
+		int32_t important_colors() const  override { return header.important_colors; }
+	};
+
+	inline std::unique_ptr<dib_header> dib_header::create_header(int32_t header_size)
+	{
+		const dib_header_type header_type = static_cast<dib_header_type>(header_size);
 		switch (header_type)
 		{
 		case dib_header_type::bitmap_core_header:
@@ -223,10 +242,14 @@ namespace fbmp
 		case dib_header_type::bitmap_v5_header:
 			break;
 		default:
-			throw exception(std::string("Unsuppoerted bitmap dib header size - ") + std::to_string(static_cast<int>(header_type)));
+			break;
+			//throw exception(std::string("Unsuppoerted bitmap dib header size - ") + std::to_string(static_cast<int>(header_type)));
 		}
-
-		throw exception(std::string("Unsuppoerted bitmap dib header size - ") + std::to_string(static_cast<int>(header_type)));
+		
+		if ( header_size <= 64 )
+			return std::unique_ptr<dib_header>(new dib_bitmap_Os22xBitmapHeader());
+		else
+			throw exception(std::string("Unsuppoerted bitmap dib header size - ") + std::to_string(static_cast<int>(header_type)));
 	}
 }
 

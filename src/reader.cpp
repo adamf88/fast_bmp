@@ -57,9 +57,9 @@ namespace fbmp
 	void reader::read_header()
 	{
 		_stream.read(&_header, sizeof(main_header), 1);
-		if (_header.magic[0] != 'B' && _header.magic[1] != 'M')
+		if (_header.magic[0] != 'B' || _header.magic[1] != 'M')
 		{
-			throw exception("Bad magic number. The file should begin from: BM");
+			throw exception(std::string("Bad magic number. The file should begin from: BM. Readed: ") + std::string(_header.magic, _header.magic + 2));
 		}
 	}
 
@@ -68,13 +68,13 @@ namespace fbmp
 		int32_t dib_header_size;
 		_stream.read(&dib_header_size, sizeof(int32_t), 1);
 		_dib_header = dib_header::create_header(dib_header_size);
-		_stream.read(_dib_header->data(), _dib_header->size() - sizeof(int32_t), 1);
+		_stream.read(_dib_header->data(), dib_header_size - sizeof(int32_t), 1);
 		
 	}
 
 	void reader::read_palette()
 	{
-		memset(_palette, 0, 256);
+		memset(_palette, 0, 256 * sizeof(uint32_t));
 
 		int16_t bit_count = _dib_header->bit_count();
 		if (bit_count > 8)
@@ -313,7 +313,7 @@ namespace fbmp
 		_stream.seek(_header.offset);
 
 		std::unique_ptr<uint8_t[]> line_buffer(new uint8_t[row_size]);
-		int	row = flipped ? height - 1 : 0;
+		//int	row = flipped ? height - 1 : 0;
 		const int inc = flipped ? -1 : 1;
 		const int end = flipped ? -1 : height - 1;
 
